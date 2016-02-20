@@ -3,35 +3,31 @@
 
 #include <stdint.h>
 
-#define POLYNOMIAL 0x3DA3358B4DC173LL
-#define POLYNOMIAL_DEGREE 53
 #define WINSIZE 64
-#define AVERAGE_BITS 20
-#define MINSIZE (512*1024)
-#define MAXSIZE (8*1024*1024)
 
 struct rabin_t {
-    uint8_t window[WINSIZE];
-    unsigned int wpos;
-    unsigned int count;
-    unsigned int pos;
-    unsigned int start;
-    uint64_t digest;
+  uint8_t window[WINSIZE];
+  uint64_t wpos;
+  uint64_t count;
+  uint64_t pos;
+  uint64_t start;
+  uint64_t digest;
+  uint64_t chunk_start;
+  uint64_t chunk_length;
+  uint64_t chunk_cut_fingerprint;
+  uint64_t polynomial;
+  uint64_t polynomial_degree;
+  uint64_t polynomial_shift;
+  uint64_t average_bits;
+  uint64_t minsize;
+  uint64_t maxsize;
+  uint64_t mask;
 };
 
-struct chunk_t {
-    unsigned int start;
-    unsigned int length;
-    uint64_t cut_fingerprint;
-};
-
-extern struct chunk_t last_chunk;
-
-struct rabin_t *rabin_init(void);
+struct rabin_t *rabin_init(struct rabin_t *h);
 void rabin_reset(struct rabin_t *h);
 void rabin_slide(struct rabin_t *h, uint8_t b);
 void rabin_append(struct rabin_t *h, uint8_t b);
-int rabin_next_chunk(struct rabin_t *h, uint8_t *buf, unsigned int len);
-struct chunk_t *rabin_finalize(struct rabin_t *h);
+int rabin_next_chunk(struct rabin_t *h, uint8_t *buf, uint64_t len);
 
 #endif

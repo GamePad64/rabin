@@ -3,11 +3,6 @@
 #include <stdbool.h>
 #include "rabin.h"
 
-#define MASK ((1<<AVERAGE_BITS)-1)
-#define POL_SHIFT (POLYNOMIAL_DEGREE-8)
-
-struct chunk_t last_chunk;
-
 static bool tables_initialized = false;
 static uint64_t mod_table[256];
 static uint64_t out_table[256];
@@ -29,7 +24,7 @@ static int deg(uint64_t p) {
 // Mod calculates the remainder of x divided by p.
 static uint64_t mod(uint64_t x, uint64_t p) {
     while (deg(x) >= deg(p)) {
-        unsigned int shift = deg(x) - deg(p);
+        uint64_t shift = deg(x) - deg(p);
 
         x = x ^ (p << shift);
     }
@@ -44,7 +39,7 @@ static uint64_t append_byte(uint64_t hash, uint8_t b, uint64_t pol) {
     return mod(hash, pol);
 }
 
-static void calc_tables(void) {
+static void calc_tables(struct rabin_t *h) {
     // calculate table for sliding out bytes. The byte to slide out is used as
     // the index for the table, the value contains the following:
     // out_table[b] = Hash(b || 0 ||        ...        || 0)
@@ -59,15 +54,15 @@ static void calc_tables(void) {
     for (int b = 0; b < 256; b++) {
         uint64_t hash = 0;
 
-        hash = append_byte(hash, (uint8_t)b, POLYNOMIAL);
+        hash = append_byte(hash, (uint8_t)b, h->polynomial);
         for (int i = 0; i < WINSIZE-1; i++) {
-            hash = append_byte(hash, 0, POLYNOMIAL);
+            hash = append_byte(hash, 0, h->polynomial);
         }
         out_table[b] = hash;
     }
 
     // calculate table for reduction mod Polynomial
-    int k = deg(POLYNOMIAL);
+    int k = deg(h->polynomial);
     for (int b = 0; b < 256; b++) {
         // mod_table[b] = A | B, where A = (b(x) * x^k mod pol) and  B = b(x) * x^k
         //
@@ -76,12 +71,12 @@ static void calc_tables(void) {
         // two parts: Part A contains the result of the modulus operation, part
         // B is used to cancel out the 8 top bits so that one XOR operation is
         // enough to reduce modulo Polynomial
-        mod_table[b] = mod(((uint64_t)b) << k, POLYNOMIAL) | ((uint64_t)b) << k;
+        mod_table[b] = mod(((uint64_t)b) << k, h->polynomial) | ((uint64_t)b) << k;
     }
 }
 
 void rabin_append(struct rabin_t *h, uint8_t b) {
-    uint8_t index = (uint8_t)(h->digest >> POL_SHIFT);
+    uint8_t index = (uint8_t)(h->digest >> h->polynomial_shift);
     h->digest <<= 8;
     h->digest |= (uint64_t)b;
     h->digest ^= mod_table[index];
@@ -106,8 +101,8 @@ void rabin_reset(struct rabin_t *h) {
     rabin_slide(h, 1);
 }
 
-int rabin_next_chunk(struct rabin_t *h, uint8_t *buf, unsigned int len) {
-    for (unsigned int i = 0; i < len; i++) {
+int rabin_next_chunk(struct rabin_t *h, uint8_t *buf, uint64_t len) {
+    for (uint64_t i = 0; i < len; i++) {
         uint8_t b = *buf++;
 
         rabin_slide(h, b);
@@ -115,17 +110,12 @@ int rabin_next_chunk(struct rabin_t *h, uint8_t *buf, unsigned int len) {
         h->count++;
         h->pos++;
 
-        if ((h->count >= MINSIZE && ((h->digest & MASK) == 0)) || h->count >= MAXSIZE) {
-            last_chunk.start = h->start;
-            last_chunk.length = h->count;
-            last_chunk.cut_fingerprint = h->digest;
+        if ((h->count >= h->minsize && ((h->digest & h->mask) == 0)) || h->count >= h->maxsize) {
+            h->chunk_start = h->start;
+            h->chunk_length = h->count;
+            h->chunk_cut_fingerprint = h->digest;
 
-            // keep position
-            unsigned int pos = h->pos;
             rabin_reset(h);
-            h->start = pos;
-            h->pos = pos;
-
             return i+1;
         }
     }
@@ -133,34 +123,15 @@ int rabin_next_chunk(struct rabin_t *h, uint8_t *buf, unsigned int len) {
     return -1;
 }
 
-struct rabin_t *rabin_init(void) {
+struct rabin_t *rabin_init(struct rabin_t *h) {
     if (!tables_initialized) {
-        calc_tables();
+        calc_tables(h);
         tables_initialized = true;
     }
 
-    struct rabin_t *h;
-
-    if ((h = malloc(sizeof(struct rabin_t))) == NULL) {
-        errx(1, "malloc()");
-    }
-
+    h->pos = 0;
+    h->start = 0;
     rabin_reset(h);
 
     return h;
-}
-
-
-struct chunk_t *rabin_finalize(struct rabin_t *h) {
-    if (h->count == 0) {
-        last_chunk.start = 0;
-        last_chunk.length = 0;
-        last_chunk.cut_fingerprint = 0;
-        return NULL;
-    }
-
-    last_chunk.start = h->start;
-    last_chunk.length = h->count;
-    last_chunk.cut_fingerprint = h->digest;
-    return &last_chunk;
 }

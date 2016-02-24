@@ -115,7 +115,12 @@ int rabin_next_chunk(struct rabin_t *h, uint8_t *buf, uint64_t len) {
             h->chunk_length = h->count;
             h->chunk_cut_fingerprint = h->digest;
 
+            // keep position
+            unsigned int pos = h->pos;
             rabin_reset(h);
+            h->start = pos;
+            h->pos = pos;
+
             return i+1;
         }
     }
@@ -134,4 +139,18 @@ struct rabin_t *rabin_init(struct rabin_t *h) {
     rabin_reset(h);
 
     return h;
+}
+
+int rabin_finalize(struct rabin_t *h) {
+    if (h->count == 0) {
+        h->chunk_start = 0;
+        h->chunk_length = 0;
+        h->chunk_cut_fingerprint = 0;
+        return 0;
+    }
+
+    h->chunk_start = h->start;
+    h->chunk_length = h->count;
+    h->chunk_cut_fingerprint = h->digest;
+    return 1;
 }

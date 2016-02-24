@@ -1,5 +1,10 @@
+#pragma once
 #ifndef _RABIN_H
 #define _RABIN_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdint.h>
 
@@ -29,5 +34,10 @@ void rabin_reset(struct rabin_t *h);
 void rabin_slide(struct rabin_t *h, uint8_t b);
 void rabin_append(struct rabin_t *h, uint8_t b);
 int rabin_next_chunk(struct rabin_t *h, uint8_t *buf, uint64_t len);
+int rabin_finalize(struct rabin_t *h);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

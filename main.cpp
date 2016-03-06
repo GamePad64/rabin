@@ -1,8 +1,10 @@
-#include <cstdio>
 #include "rabin.h"
-#include <iostream>
-#include <iomanip>
+
+#include <cstdio>
 #include <cstring>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
 
 // 1MiB buffer
 uint8_t buf[1024*1024];

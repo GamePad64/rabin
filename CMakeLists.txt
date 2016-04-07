@@ -15,6 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #============================================================================
 
 add_library(${PROJECT_NAME} rabin.c rabin.h)
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(${PROJECT_NAME}-exec main.cpp)
 target_link_libraries(${PROJECT_NAME}-exec ${PROJECT_NAME})

@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <memory>
 
 // 1MiB buffer
 uint8_t buf[1024*1024];
